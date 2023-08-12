@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <title>Game Keys</title>
+</head>
+
+<body>
+
+<!-- HEADER -->
+<header class="p-4 bg-gray-800 text-white">
+    <div class="container mx-auto flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl">Your Game Keys</h1>
+            <div class="mt-2">
+                <label for="search"></label><input type="text" id="search" placeholder="Search for a game..." class="p-2 rounded text-black">
+                <a href="/" class="btn btn-primary bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded ml-2">Home</a>
+                <a href="/random" class="btn btn-primary bg-green-500 hover:bg-green-600 px-4 py-2 rounded ml-2">Random Key</a>
+            </div>
+        </div>
+        <!-- Display for number of games -->
+        <div id="gameCount" class="text-xl">
+            0 Games
+        </div>
+    </div>
+</header>
+
+<div id="content" class="pt-24">
+    <div class="container mx-auto p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        {% for row in data %}
+        <div class="bg-gray-100 p-4 rounded shadow">
+            {% if row.get('key_type_human_name')|lower == 'steam' %}
+                <img src="https://upload.wikimedia.org/wikipedia/commons/8/83/Steam_icon_logo.svg" alt="Steam Logo" class="w-16 mx-auto mb-4">
+            {% else %}
+                <img src="{{ row.get('key_type_human_name')|lower }}.png" alt="Platform Logo" class="w-16 mx-auto mb-4">
+            {% endif %}
+
+            <h2 class="text-center mb-2">{{ row.get('human_name', 'Unknown Game') }}</h2>
+            <button onclick="alert('Key: {{ row.get('redeemed_key_val') }}')" class="block w-full bg-blue-500 hover:bg-blue-600 text-white rounded p-2">Reveal Key</button>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+
+function updateGameCount(count) {
+    document.getElementById('gameCount').textContent = `${count} ${count === 1 ? 'Game' : 'Games'}`;
+}
+
+// Call the function with the initial number of games
+updateGameCount({{ data|length }});
+
+document.getElementById('search').addEventListener('input', function(e) {
+    let searchValue = e.target.value;
+    fetch('/?search=' + searchValue, {
+        headers: {
+            "X-Requested-With": "XMLHttpRequest"
+        }
+    })
+    .then(response => response.json())
+    .then(jsonData => {
+        let newContent = '';
+        jsonData.data.forEach(row => {
+            let logoURL = (row.key_type_human_name.toLowerCase() === 'steam') ?
+                "https://upload.wikimedia.org/wikipedia/commons/8/83/Steam_icon_logo.svg" :
+                `${row.key_type_human_name.toLowerCase()}.png`;
+            newContent += `
+                <div class="bg-gray-100 p-4 rounded shadow">
+                    <img src="${logoURL}" alt="Platform Logo" class="w-16 mx-auto mb-4">
+                    <h2 class="text-center mb-2">${row.human_name}</h2>
+                    <button onclick="alert('Key: ${row.redeemed_key_val}')" class="block w-full bg-blue-500 hover:bg-blue-600 text-white rounded p-2">Reveal Key</button>
+                </div>`;
+        });
+        document.querySelector('.grid').innerHTML = newContent;
+
+        // Update the count of games after searching
+        updateGameCount(jsonData.data.length);
+    });
+});
+
+function scrollToTop() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Show the back to top button after scrolling 400px
+window.addEventListener('scroll', function() {
+    const backToTopBtn = document.getElementById('backToTop');
+    if (window.scrollY > 400) {
+        backToTopBtn.style.opacity = '1';
+    } else {
+        backToTopBtn.style.opacity = '0';
+    }
+});
+
+</script>
+<button id="backToTop" class="p-4 bg-blue-500 text-white fixed bottom-4 right-4 rounded-full shadow-lg opacity-0 transition-opacity duration-300 ease-in-out" onclick="scrollToTop()">↑</button>
+
+</body>
+</html>
