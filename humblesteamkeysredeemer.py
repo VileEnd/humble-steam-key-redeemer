@@ -928,7 +928,7 @@ def print_main_header():
 
 
 if __name__ == "__main__":
-print("Welcome to FailSpy's Humble Bundle Helper! you fucker!")
+
     driver = get_headless_driver()
     humble_login(driver)
     order_details = driver.execute_async_script(getHumbleOrders.replace('%optional%', ''))
