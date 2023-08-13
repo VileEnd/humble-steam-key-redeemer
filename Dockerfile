@@ -5,14 +5,11 @@ LABEL authors="Jan"
 
 WORKDIR /app
 
-# Update
-RUN apt-get update
-
-# Install build tools, Firefox, and necessary packages
-RUN apt-get install -y nginx git gcc g++ build-essential firefox-esr
-
-# Clone the GitHub repository
-RUN git clone https://github.com/VileEnd/humble-steam-key-redeemer.git /app
+RUN apt-get update && apt-get install -y \
+    nginx git gcc g++ build-essential firefox-esr && \
+    git clone --depth 1 https://github.com/VileEnd/humble-steam-key-redeemer.git /app && \
+    pip install --no-cache-dir -r /app/requirements.txt gunicorn eventlet && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Copy Nginx config
 COPY nginx_config /etc/nginx/sites-available/default

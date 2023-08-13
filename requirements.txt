@@ -1,7 +1,10 @@
 steam>=1.2.0
-fuzzywuzzy>=0.17.0
+fuzzywuzzy>=0.18.0
 requests>=2.25.1
 selenium>=4.10.0
 pwinput>=1.0.3
 Flask~=2.3.2
 eventlet~=0.33.3
+gunicorn>=20.0.4
+flask_socketio>=5.0.1
+python-Levenshtein>=0.12.2
