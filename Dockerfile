@@ -14,9 +14,6 @@ RUN apt-get install -y nginx git gcc g++ build-essential firefox-esr
 # Clone the GitHub repository
 RUN git clone https://github.com/VileEnd/humble-steam-key-redeemer.git /app
 
-# Install Python packages from requirements.txt and ensure gunicorn is installed
-RUN pip install --no-cache-dir -r /app/requirements.txt && pip install gunicorn
-
 # Copy Nginx config
 COPY nginx_config /etc/nginx/sites-available/default
 
