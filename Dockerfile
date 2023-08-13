@@ -5,15 +5,15 @@ LABEL authors="Jan"
 
 WORKDIR /app
 
-# Install required packages and nginx
+# Install required packages, nginx, and git
 RUN apt-get update \
-    && apt-get install -y nginx \
+    && apt-get install -y nginx git \
     && pip install --no-cache-dir Flask flask_socketio eventlet gunicorn
 
-# Copy the current directory contents into the container at /app
-COPY . /app
+# Clone the GitHub repository
+RUN git clone https://github.com/VileEnd/humble-steam-key-redeemer.git /app
 
-# Copy Nginx config
+# Copy Nginx config (Assuming you have it in the same folder as the Dockerfile, adjust as needed)
 COPY nginx_config /etc/nginx/sites-available/default
 
 # Expose ports

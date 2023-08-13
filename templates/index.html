@@ -1,103 +1,156 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <title>Game Keys</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 </head>
 
-<body>
+<body class="bg-gray-900 text-gray-200">
 
-<!-- HEADER -->
-<header class="p-4 bg-gray-800 text-white">
-    <div class="container mx-auto flex items-center justify-between">
-        <div>
-            <h1 class="text-2xl">Your Game Keys</h1>
-            <div class="mt-2">
-                <label for="search"></label><input type="text" id="search" placeholder="Search for a game..." class="p-2 rounded text-black">
-                <a href="/" class="btn btn-primary bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded ml-2">Home</a>
-                <a href="/random" class="btn btn-primary bg-green-500 hover:bg-green-600 px-4 py-2 rounded ml-2">Random Key</a>
+    <!-- HEADER -->
+    <header class="p-4 bg-gray-800">
+        <div class="container mx-auto flex flex-wrap items-center justify-between">
+            <h1 class="text-3xl">Your Game Keys</h1>
+            <div class="mt-2 flex flex-wrap items-center">
+                <input type="text" id="search" placeholder="Search for a game..." class="p-2 rounded dark:bg-gray-700 flex-1 mr-2">
+                <a href="/" class="bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded ml-2 transition duration-300">Home</a>
+                <a href="/random" class="bg-green-500 hover:bg-green-600 px-4 py-2 rounded ml-2 transition duration-300">Random Key</a>
+            </div>
+            <!-- Display for number of games -->
+            <div id="gameCount" class="text-xl mt-4 md:mt-0">
+                0 Games
             </div>
         </div>
-        <!-- Display for number of games -->
-        <div id="gameCount" class="text-xl">
-            0 Games
+    </header>
+
+    <div class="pt-8 container mx-auto p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Main Content for Game Keys -->
+        <div id="gamesGrid" class="col-span-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for row in data %}
+            <div class="bg-gray-800 p-4 rounded shadow-lg text-gray-200"> <!-- New Code -->
+                {% if row.get('key_type_human_name')|lower == 'steam' %}
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/8/83/Steam_icon_logo.svg" alt="Steam Logo" class="w-16 mx-auto mb-4">
+                {% else %}
+                    <img src="{{ row.get('key_type_human_name')|lower }}.png" alt="Platform Logo" class="w-16 mx-auto mb-4">
+                {% endif %}
+                <h2 class="text-center mb-2">{{ row.get('human_name', 'Unknown Game') }}</h2>
+                <button onclick="alert('Key: {{ row.get('redeemed_key_val') }}')" class="block w-full bg-blue-500 hover:bg-blue-600 text-white rounded p-2 transition duration-300">Reveal Key</button>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Chat UI for the script stuff -->
+        <div class="col-span-1 bg-gray-800 p-4 rounded shadow-lg">
+            <button onclick="startScript()" class="w-full mt-4 mb-2 p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition duration-300">Start Script</button>
+            <div id="output" class="p-2 h-64 bg-gray-700 rounded overflow-y-auto mb-4"></div>
+            <div class="flex items-center">
+                <input type="text" id="userInput" placeholder="Enter input..." class="flex-1 p-2 rounded-l dark:bg-gray-700">
+                <button onclick="sendInput()" class="p-2 bg-blue-500 text-white rounded-r hover:bg-blue-600 transition duration-300">Send</button>
+            </div>
         </div>
     </div>
-</header>
 
-<div id="content" class="pt-24">
-    <div class="container mx-auto p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        {% for row in data %}
-        <div class="bg-gray-100 p-4 rounded shadow">
-            {% if row.get('key_type_human_name')|lower == 'steam' %}
-                <img src="https://upload.wikimedia.org/wikipedia/commons/8/83/Steam_icon_logo.svg" alt="Steam Logo" class="w-16 mx-auto mb-4">
-            {% else %}
-                <img src="{{ row.get('key_type_human_name')|lower }}.png" alt="Platform Logo" class="w-16 mx-auto mb-4">
-            {% endif %}
-
-            <h2 class="text-center mb-2">{{ row.get('human_name', 'Unknown Game') }}</h2>
-            <button onclick="alert('Key: {{ row.get('redeemed_key_val') }}')" class="block w-full bg-blue-500 hover:bg-blue-600 text-white rounded p-2">Reveal Key</button>
-        </div>
-        {% endfor %}
-    </div>
-</div>
+    <button id="backToTop" class="p-4 bg-blue-500 text-white fixed bottom-4 right-4 rounded-full shadow-lg opacity-0 transition duration-300">↑</button>
 
 <script>
+    const htmlEl = document.documentElement;
 
-function updateGameCount(count) {
-    document.getElementById('gameCount').textContent = `${count} ${count === 1 ? 'Game' : 'Games'}`;
-}
+    let socket = io.connect('http://' + document.domain + ':' + location.port);
+    socket.on('script_output', function(data) {
+        console.log(data);
+        document.getElementById('output').innerHTML += data.data + "<br/>";
+        document.getElementById('output').scrollTop = document.getElementById('output').scrollHeight;
+    });
 
-// Call the function with the initial number of games
-updateGameCount({{ data|length }});
+    function startScript() {
+        console.log('starting script');
+        socket.emit('start_script');
+    }
 
-document.getElementById('search').addEventListener('input', function(e) {
-    let searchValue = e.target.value;
-    fetch('/?search=' + searchValue, {
-        headers: {
-            "X-Requested-With": "XMLHttpRequest"
-        }
-    })
-    .then(response => response.json())
-    .then(jsonData => {
+    function sendInput() {
+        var userInput = document.getElementById('userInput').value;
+        socket.emit('send_input', {data: userInput});
+        document.getElementById('userInput').value = '';
+    }
+
+    let timeout;
+    document.getElementById('search').addEventListener('keyup', function(e) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => {
+            searchGames(e.target.value);
+        }, 100);  // debounce by 100ms
+    });
+
+    function searchGames(searchValue) {
+        fetch('/?search=' + searchValue, {
+            headers: {
+                "X-Requested-With": "XMLHttpRequest"
+            }
+        })
+        .then(handleResponse)
+        .then(renderGames)
+        .catch(handleError);
+    }
+
+    function renderGames(jsonData) {
         let newContent = '';
         jsonData.data.forEach(row => {
             let logoURL = (row.key_type_human_name.toLowerCase() === 'steam') ?
                 "https://upload.wikimedia.org/wikipedia/commons/8/83/Steam_icon_logo.svg" :
                 `${row.key_type_human_name.toLowerCase()}.png`;
             newContent += `
-                <div class="bg-gray-100 p-4 rounded shadow">
+                <div class="bg-gray-800 p-4 rounded shadow-lg text-gray-200">
                     <img src="${logoURL}" alt="Platform Logo" class="w-16 mx-auto mb-4">
                     <h2 class="text-center mb-2">${row.human_name}</h2>
-                    <button onclick="alert('Key: ${row.redeemed_key_val}')" class="block w-full bg-blue-500 hover:bg-blue-600 text-white rounded p-2">Reveal Key</button>
+                    <button onclick="alert('Key: ${row.redeemed_key_val}')" class="block w-full bg-blue-500 hover:bg-blue-600 text-white rounded p-2 transition duration-300">Reveal Key</button>
                 </div>`;
         });
-        document.querySelector('.grid').innerHTML = newContent;
-
-        // Update the count of games after searching
+        document.querySelector('#gamesGrid').innerHTML = newContent;
         updateGameCount(jsonData.data.length);
-    });
-});
-
-function scrollToTop() {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-// Show the back to top button after scrolling 400px
-window.addEventListener('scroll', function() {
-    const backToTopBtn = document.getElementById('backToTop');
-    if (window.scrollY > 400) {
-        backToTopBtn.style.opacity = '1';
-    } else {
-        backToTopBtn.style.opacity = '0';
     }
-});
+
+    function updateGameCount(count) {
+        document.getElementById('gameCount').textContent = `${count} ${count === 1 ? 'Game' : 'Games'}`;
+    }
+
+    function handleResponse(response) {
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return response.json();
+    }
+
+    function handleError(error) {
+        console.error('Fetch error: ', error);
+    }
+
+    const backToTopButton = document.getElementById('backToTop');
+    window.addEventListener('scroll', () => {
+        if (window.scrollY > 100) {
+            backToTopButton.style.opacity = '1';
+        } else {
+            backToTopButton.style.opacity = '0';
+        }
+    });
+
+    backToTopButton.addEventListener('click', () => {
+        window.scrollTo({
+            top: 0,
+            behavior: "smooth"
+        });
+    });
+
+    if (window.location.pathname === '/') {
+        // If on the homepage, load all games on initial page load
+        searchGames('');
+    }
 
 </script>
-<button id="backToTop" class="p-4 bg-blue-500 text-white fixed bottom-4 right-4 rounded-full shadow-lg opacity-0 transition-opacity duration-300 ease-in-out" onclick="scrollToTop()">↑</button>
 
 </body>
+
 </html>
