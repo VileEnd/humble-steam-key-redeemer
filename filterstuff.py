@@ -1,61 +1,88 @@
 import csv
 import os
 import random
-from flask import Flask, render_template, request, redirect, url_for, jsonify, flash
+from flask import Flask, render_template, redirect, url_for, request, jsonify
+from flask_socketio import SocketIO, emit
+import subprocess
+import threading
 
 app = Flask(__name__)
+socketio = SocketIO(app)
+
+current_process = None
 
 
 @app.route('/')
 def display_data():
+    """Display data from CSV with optional search query."""
     data = read_csv()
-    platform = request.args.get('platform', '')
     search_query = request.args.get('search', '').lower()
+    data = [row for row in data if search_query in row.get('human_name', '').lower()]
 
-    if platform:
-        data = [row for row in data if row.get('key_type_human_name', '').strip() == platform]
-    if search_query:
-        data = [row for row in data if search_query in row.get('human_name', '').lower()]
-
-    platforms = set(row.get('key_type_human_name', '') for row in data)
-
-    # Check if the request is AJAX
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return jsonify(data=data)
-
-    return render_template('index.html', data=data, platforms=platforms)
+    else:
+        return render_template('index.html', data=data)
 
 
 @app.route('/random')
 def random_key():
+    """Get a random key."""
     data = read_csv()
-    if not data:
-        return redirect(url_for('display_data'))
-    random_choice = random.choice(data)
-    return render_template('index.html', data=[random_choice], platforms=set())
+    return render_template('index.html', data=[random.choice(data)]) if data else redirect(url_for('display_data'))
 
 
 def get_latest_csv():
+    """Retrieve the latest CSV filename based on naming pattern."""
     files = [f for f in os.listdir('.') if f.startswith('humble_export_') and f.endswith('.csv')]
-    files.sort(reverse=True)
-    return files[0] if files else None
+    return max(files, default=None)
 
 
 def read_csv():
+    """Read content from the latest CSV."""
     filename = get_latest_csv()
-    if filename is None:
+    if not filename:
         return []
 
-    data = []
     with open(filename, 'r', encoding='utf-8-sig') as file:
         reader = csv.DictReader(file)
-        for row in reader:
-            cleaned_row = {key.strip(): value.strip() for key, value in row.items()}
-            if cleaned_row.get('redeemed_key_val') != "Redeemed to MoyJak":
-                data.append(cleaned_row)
+        return [{key.strip(): value.strip() for key, value in row.items()} for row in reader if row.get('redeemed_key_val') != "Redeemed to MoyJak"]
 
-    return data
+
+def run_script():
+    print("Starting script2")
+    global current_process
+    current_process = subprocess.Popen(['cmd.exe', '/c', 'run_redeemer.bat'],
+                                       stdin=subprocess.PIPE,
+                                       stdout=subprocess.PIPE,
+                                       stderr=subprocess.PIPE,
+                                       text=True)
+
+    while True:
+        output = current_process.stdout.readline().strip()
+        error_output = current_process.stderr.readline().strip()
+        if error_output:
+            socketio.emit('script_error_output', {'data': error_output})
+        if output == '' and current_process.poll() is not None:
+            break
+        if output:
+            socketio.emit('script_output', {'data': output})
+
+
+@socketio.on('send_input')
+def handle_input(message):
+    global current_process
+    current_process.stdin.write(message['data'] + "\n")
+    current_process.stdin.flush()
+
+
+@socketio.on('start_script')
+def handle_start():
+    print("Starting script")
+    thread = threading.Thread(target=run_script)
+    thread.start()
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)
+

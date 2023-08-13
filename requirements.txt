@@ -3,3 +3,5 @@ fuzzywuzzy>=0.17.0
 requests>=2.25.1
 selenium>=4.10.0
 pwinput>=1.0.3
+Flask~=2.3.2
+eventlet~=0.33.3
